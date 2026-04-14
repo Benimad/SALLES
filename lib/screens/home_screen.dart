@@ -5,6 +5,10 @@ import 'salles_screen.dart';
 import 'demandes_screen.dart';
 import 'admin_screen.dart';
 import 'login_screen.dart';
+import 'calendar_screen.dart';
+import 'statistics_screen.dart';
+import 'profile_screen.dart';
+import 'manage_salles_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -70,8 +74,71 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Gestion des Salles'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
+            icon: const Icon(Icons.calendar_today),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CalendarScreen()),
+              );
+            },
+            tooltip: 'Calendrier',
+          ),
+          if (_currentUser?.role == 'admin') ..[
+            IconButton(
+              icon: const Icon(Icons.bar_chart),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const StatisticsScreen()),
+                );
+              },
+              tooltip: 'Statistiques',
+            ),
+            IconButton(
+              icon: const Icon(Icons.meeting_room_outlined),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ManageSallesScreen()),
+                );
+              },
+              tooltip: 'Gérer les salles',
+            ),
+          ],
+          PopupMenuButton(
+            icon: const Icon(Icons.more_vert),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person),
+                    SizedBox(width: 8),
+                    Text('Mon profil'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Déconnexion', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+            onSelected: (value) {
+              if (value == 'profile') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                );
+              } else if (value == 'logout') {
+                _logout();
+              }
+            },
           ),
         ],
       ),
