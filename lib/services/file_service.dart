@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
@@ -26,7 +27,7 @@ class FileService {
       }
       return null;
     } catch (e) {
-      print('Erreur lors de la sélection de l\'image: $e');
+      debugPrint('Erreur lors de la sélection de l\'image: $e');
       return null;
     }
   }
@@ -46,7 +47,7 @@ class FileService {
       }
       return null;
     } catch (e) {
-      print('Erreur lors de la prise de photo: $e');
+      debugPrint('Erreur lors de la prise de photo: $e');
       return null;
     }
   }
@@ -64,7 +65,7 @@ class FileService {
       }
       return null;
     } catch (e) {
-      print('Erreur lors de la sélection du fichier: $e');
+      debugPrint('Erreur lors de la sélection du fichier: $e');
       return null;
     }
   }
@@ -86,7 +87,7 @@ class FileService {
       }
       return [];
     } catch (e) {
-      print('Erreur lors de la sélection des fichiers: $e');
+      debugPrint('Erreur lors de la sélection des fichiers: $e');
       return [];
     }
   }
@@ -114,7 +115,7 @@ class FileService {
 
       return response.data;
     } catch (e) {
-      print('Erreur lors de l\'upload: $e');
+      debugPrint('Erreur lors de l\'upload: $e');
       return {'success': false, 'message': 'Erreur lors de l\'upload: $e'};
     }
   }
@@ -149,7 +150,7 @@ class FileService {
 
       return response.data;
     } catch (e) {
-      print('Erreur lors de l\'upload multiple: $e');
+      debugPrint('Erreur lors de l\'upload multiple: $e');
       return {'success': false, 'message': 'Erreur lors de l\'upload: $e'};
     }
   }
@@ -163,7 +164,7 @@ class FileService {
       await _dio.download(url, filePath);
       return File(filePath);
     } catch (e) {
-      print('Erreur lors du téléchargement: $e');
+      debugPrint('Erreur lors du téléchargement: $e');
       return null;
     }
   }
@@ -196,7 +197,7 @@ class FileService {
       }
       return false;
     } catch (e) {
-      print('Erreur lors de la suppression: $e');
+      debugPrint('Erreur lors de la suppression: $e');
       return false;
     }
   }

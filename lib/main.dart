@@ -14,7 +14,7 @@ void main() async {
     // Initialiser les notifications
     await NotificationService().initialize();
   } catch (e) {
-    print('Erreur d\'initialisation Firebase: $e');
+    debugPrint('Erreur d\'initialisation Firebase: $e');
   }
   
   runApp(const MyApp());

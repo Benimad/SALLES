@@ -172,7 +172,7 @@ class _DemandesScreenState extends State<DemandesScreen> {
                                             Expanded(child: Text('Motif: ${demande.motif}')),
                                           ],
                                         ),
-                                        if (demande.statut == 'approuvee') ..[
+                                        if (demande.statut == 'approuvee') ...[
                                           const SizedBox(height: 16),
                                           SizedBox(
                                             width: double.infinity,

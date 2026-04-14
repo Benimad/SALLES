@@ -83,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             tooltip: 'Calendrier',
           ),
-          if (_currentUser?.role == 'admin') ..[
+          if (_currentUser?.role == 'admin') ...[
             IconButton(
               icon: const Icon(Icons.bar_chart),
               onPressed: () {

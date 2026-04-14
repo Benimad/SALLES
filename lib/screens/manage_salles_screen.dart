@@ -93,9 +93,11 @@ class _ManageSallesScreenState extends State<ManageSallesScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (nomController.text.isEmpty || capaciteController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Veuillez remplir tous les champs')),
-                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Veuillez remplir tous les champs')),
+                    );
+                  }
                   return;
                 }
 
@@ -111,9 +113,11 @@ class _ManageSallesScreenState extends State<ManageSallesScreen> {
                     ? await _apiService.updateSalle(newSalle)
                     : await _apiService.addSalle(newSalle);
 
-                Navigator.pop(context);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
 
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(result['message'] ?? 'Opération réussie')),
                   );
@@ -145,9 +149,12 @@ class _ManageSallesScreenState extends State<ManageSallesScreen> {
           ElevatedButton(
             onPressed: () async {
               final result = await _apiService.deleteSalle(salle.id);
-              Navigator.pop(context);
+              
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
 
-              if (mounted) {
+              if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(result['message'] ?? 'Opération réussie')),
                 );

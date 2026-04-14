@@ -28,7 +28,7 @@ class _CreateDemandeWithAttachmentsScreenState extends State<CreateDemandeWithAt
   TimeOfDay _heureDebut = TimeOfDay.now();
   TimeOfDay _heureFin = TimeOfDay.now();
   bool _isLoading = false;
-  List<File> _attachedFiles = [];
+  final List<File> _attachedFiles = [];
 
   @override
   void dispose() {

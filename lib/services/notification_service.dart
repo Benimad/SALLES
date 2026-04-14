@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,7 +21,7 @@ class NotificationService {
     );
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      print('Notifications autorisées');
+      debugPrint('Notifications autorisées');
     }
 
     // Configuration des notifications locales
@@ -63,7 +64,7 @@ class NotificationService {
     String? token = await _firebaseMessaging.getToken();
     if (token != null) {
       await _saveToken(token);
-      print('FCM Token: $token');
+      debugPrint('FCM Token: $token');
     }
 
     // Écouter les changements de token
@@ -82,12 +83,12 @@ class NotificationService {
   }
 
   void _handleForegroundMessage(RemoteMessage message) {
-    print('Message reçu en premier plan: ${message.notification?.title}');
+    debugPrint('Message reçu en premier plan: ${message.notification?.title}');
     _showLocalNotification(message);
   }
 
   void _handleBackgroundMessage(RemoteMessage message) {
-    print('Message ouvert depuis l\'arrière-plan: ${message.notification?.title}');
+    debugPrint('Message ouvert depuis l\'arrière-plan: ${message.notification?.title}');
   }
 
   Future<void> _showLocalNotification(RemoteMessage message) async {
@@ -121,7 +122,7 @@ class NotificationService {
   }
 
   void _onNotificationTapped(NotificationResponse response) {
-    print('Notification tapée: ${response.payload}');
+    debugPrint('Notification tapée: ${response.payload}');
     // TODO: Navigation vers l'écran approprié
   }
 
@@ -163,5 +164,5 @@ class NotificationService {
 // Handler pour les messages en arrière-plan (doit être top-level)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('Message en arrière-plan: ${message.notification?.title}');
+  debugPrint('Message en arrière-plan: ${message.notification?.title}');
 }

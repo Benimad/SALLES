@@ -122,16 +122,30 @@ class PdfService {
               ),
             ),
             pw.SizedBox(height: 20),
-            pw.Table.fromTextArray(
-              headers: ['ID', 'Salle', 'Date', 'Statut'],
-              data: demandes.map((d) => [
-                d.id.toString(),
-                d.salleName ?? 'Salle #${d.salleId}',
-                DateFormat('dd/MM/yyyy').format(DateTime.parse(d.dateDebut)),
-                _getStatusText(d.statut),
-              ]).toList(),
-              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              cellAlignment: pw.Alignment.centerLeft,
+            pw.Table(
+              children: [
+                pw.TableRow(
+                  children: ['ID', 'Salle', 'Date', 'Statut']
+                      .map((h) => pw.Padding(
+                            padding: const pw.EdgeInsets.all(8),
+                            child: pw.Text(h, style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ))
+                      .toList(),
+                ),
+                ...demandes.map((d) => pw.TableRow(
+                      children: [
+                        d.id.toString(),
+                        d.salleName ?? 'Salle #${d.salleId}',
+                        DateFormat('dd/MM/yyyy').format(DateTime.parse(d.dateDebut)),
+                        _getStatusText(d.statut),
+                      ]
+                          .map((cell) => pw.Padding(
+                                padding: const pw.EdgeInsets.all(8),
+                                child: pw.Text(cell),
+                              ))
+                          .toList(),
+                    )),
+              ],
             ),
             pw.SizedBox(height: 20),
             pw.Text(
