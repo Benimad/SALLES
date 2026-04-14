@@ -6,6 +6,19 @@ class ApiConstants {
   static const String createDemande = '$baseUrl/create_demande.php';
   static const String getDemandes = '$baseUrl/get_demandes.php';
   static const String updateDemande = '$baseUrl/update_demande.php';
+  
+  // Phase 3 - CRUD Salles
+  static const String addSalle = '$baseUrl/add_salle.php';
+  static const String updateSalle = '$baseUrl/update_salle.php';
+  static const String deleteSalle = '$baseUrl/delete_salle.php';
+  
+  // Phase 3 - Pièces jointes
+  static const String uploadAttachment = '$baseUrl/upload_attachment.php';
+  static const String getAttachments = '$baseUrl/get_attachments.php';
+  
+  // Phase 3 - Notifications
+  static const String sendNotification = '$baseUrl/send_notification.php';
+  static const String updateFcmToken = '$baseUrl/update_fcm_token.php';
 }
 
 class AppConstants {

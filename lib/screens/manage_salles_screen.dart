@@ -38,59 +38,95 @@ class _ManageSallesScreenState extends State<ManageSallesScreen> {
     final equipementsController = TextEditingController(
       text: salle?.equipements ?? '',
     );
+    bool disponible = salle?.disponible ?? true;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(isEdit ? 'Modifier la salle' : 'Ajouter une salle'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nomController,
-                decoration: const InputDecoration(
-                  labelText: 'Nom de la salle',
-                  border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(isEdit ? 'Modifier la salle' : 'Ajouter une salle'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nomController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nom de la salle',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: capaciteController,
-                decoration: const InputDecoration(
-                  labelText: 'Capacité',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: capaciteController,
+                  decoration: const InputDecoration(
+                    labelText: 'Capacité',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
                 ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: equipementsController,
-                decoration: const InputDecoration(
-                  labelText: 'Équipements',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: equipementsController,
+                  decoration: const InputDecoration(
+                    labelText: 'Équipements',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
                 ),
-                maxLines: 3,
-              ),
-            ],
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  title: const Text('Disponible'),
+                  value: disponible,
+                  onChanged: (value) {
+                    setDialogState(() => disponible = value);
+                  },
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nomController.text.isEmpty || capaciteController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Veuillez remplir tous les champs')),
+                  );
+                  return;
+                }
+
+                final newSalle = Salle(
+                  id: salle?.id ?? 0,
+                  nom: nomController.text,
+                  capacite: int.parse(capaciteController.text),
+                  equipements: equipementsController.text,
+                  disponible: disponible,
+                );
+
+                final result = isEdit
+                    ? await _apiService.updateSalle(newSalle)
+                    : await _apiService.addSalle(newSalle);
+
+                Navigator.pop(context);
+
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(result['message'] ?? 'Opération réussie')),
+                  );
+
+                  if (result['success'] == true) {
+                    _loadSalles();
+                  }
+                }
+              },
+              child: Text(isEdit ? 'Modifier' : 'Ajouter'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implémenter l'ajout/modification
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Fonctionnalité à venir')),
-              );
-            },
-            child: Text(isEdit ? 'Modifier' : 'Ajouter'),
-          ),
-        ],
       ),
     );
   }
@@ -107,12 +143,19 @@ class _ManageSallesScreenState extends State<ManageSallesScreen> {
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () {
-              // TODO: Implémenter la suppression
+            onPressed: () async {
+              final result = await _apiService.deleteSalle(salle.id);
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Fonctionnalité à venir')),
-              );
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(result['message'] ?? 'Opération réussie')),
+                );
+
+                if (result['success'] == true) {
+                  _loadSalles();
+                }
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Supprimer'),
@@ -163,6 +206,13 @@ class _ManageSallesScreenState extends State<ManageSallesScreen> {
                             const SizedBox(height: 4),
                             Text('Capacité: ${salle.capacite} personnes'),
                             Text('Équipements: ${salle.equipements}'),
+                            Text(
+                              salle.disponible ? 'Disponible' : 'Non disponible',
+                              style: TextStyle(
+                                color: salle.disponible ? Colors.green : Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ],
                         ),
                         trailing: PopupMenuButton(

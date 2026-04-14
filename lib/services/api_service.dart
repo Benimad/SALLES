@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/salle.dart';
 import '../models/demande.dart';
+import '../models/attachment.dart';
 import '../utils/constants.dart';
 import 'auth_service.dart';
 
@@ -34,6 +35,52 @@ class ApiService {
       return [];
     } catch (e) {
       return [];
+    }
+  }
+
+  // Phase 3 - CRUD Salles
+  Future<Map<String, dynamic>> addSalle(Salle salle) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.addSalle),
+        headers: await _getHeaders(),
+        body: jsonEncode(salle.toJson()),
+      );
+
+      final data = jsonDecode(response.body);
+      return data;
+    } catch (e) {
+      return {'success': false, 'message': 'Erreur: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSalle(Salle salle) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.updateSalle),
+        headers: await _getHeaders(),
+        body: jsonEncode(salle.toJson()),
+      );
+
+      final data = jsonDecode(response.body);
+      return data;
+    } catch (e) {
+      return {'success': false, 'message': 'Erreur: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteSalle(int salleId) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.deleteSalle),
+        headers: await _getHeaders(),
+        body: jsonEncode({'id': salleId}),
+      );
+
+      final data = jsonDecode(response.body);
+      return data;
+    } catch (e) {
+      return {'success': false, 'message': 'Erreur: $e'};
     }
   }
 
@@ -84,6 +131,44 @@ class ApiService {
         Uri.parse(ApiConstants.updateDemande),
         headers: await _getHeaders(),
         body: jsonEncode({'demande_id': demandeId, 'statut': statut}),
+      );
+
+      final data = jsonDecode(response.body);
+      return data;
+    } catch (e) {
+      return {'success': false, 'message': 'Erreur: $e'};
+    }
+  }
+
+  // Phase 3 - Pièces jointes
+  Future<List<Attachment>> getAttachments(int demandeId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.getAttachments}?demande_id=$demandeId'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return (data['attachments'] as List)
+              .map((json) => Attachment.fromJson(json))
+              .toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Phase 3 - Notifications
+  Future<Map<String, dynamic>> updateFcmToken(int userId, String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.updateFcmToken),
+        headers: await _getHeaders(),
+        body: jsonEncode({'user_id': userId, 'fcm_token': token}),
       );
 
       final data = jsonDecode(response.body);

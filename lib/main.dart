@@ -1,9 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialiser Firebase
+  try {
+    await Firebase.initializeApp();
+    // Initialiser les notifications
+    await NotificationService().initialize();
+  } catch (e) {
+    print('Erreur d\'initialisation Firebase: $e');
+  }
+  
   runApp(const MyApp());
 }
 
