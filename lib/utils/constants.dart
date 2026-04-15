@@ -1,5 +1,8 @@
 class ApiConstants {
-  static const String baseUrl = 'http://your-server.com/api';
+  // For Android Emulator - use 10.0.2.2 to access host's localhost
+  // For Physical Device - use your computer's actual IP address (e.g., 192.168.1.x)
+  static const String baseUrl = 'http://10.0.2.2/salles/api';
+  static const String wsUrl = 'ws://10.0.2.2:8080';
   static const String login = '$baseUrl/login.php';
   static const String register = '$baseUrl/register.php';
   static const String getSalles = '$baseUrl/get_salles.php';
