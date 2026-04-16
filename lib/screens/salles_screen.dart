@@ -1,9 +1,10 @@
+// === FILE: salles_screen.dart ===
 import 'package:flutter/material.dart';
-import '../models/salle.dart';
-import '../services/api_service.dart';
 import '../utils/theme.dart';
+import '../widgets/al_omrane_widgets.dart';
+import '../services/api_service.dart';
+import '../models/salle.dart';
 import 'create_demande_screen.dart';
-import 'create_demande_with_attachments_screen.dart';
 
 class SallesScreen extends StatefulWidget {
   const SallesScreen({super.key});
@@ -12,717 +13,566 @@ class SallesScreen extends StatefulWidget {
   State<SallesScreen> createState() => _SallesScreenState();
 }
 
-class _SallesScreenState extends State<SallesScreen>
-    with SingleTickerProviderStateMixin {
-  final _apiService = ApiService();
-  final _searchController = TextEditingController();
-  List<Salle> _salles = [];
-  List<Salle> _filteredSalles = [];
-  bool _isLoading = true;
-  int _minCapacity = 0;
+class _SallesScreenState extends State<SallesScreen> {
+  final ApiService _api = ApiService();
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
-  late AnimationController _animationController;
+  List<Salle> _salles = [];
+  List<Salle> _filtered = [];
+  bool _loading = true;
+  String? _error;
+  int? _capacityFilter;
+
+  static const List<int?> _capacityOptions = [null, 10, 20, 30, 50, 100];
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _loadSalles();
+    _load();
+    _searchController.addListener(_applyFilters);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _animationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadSalles() async {
-    setState(() => _isLoading = true);
-    final salles = await _apiService.getSalles();
+  Future<void> _load() async {
     setState(() {
-      _salles = salles;
-      _filteredSalles = salles;
-      _isLoading = false;
+      _loading = true;
+      _error = null;
     });
-    _animationController.forward();
-  }
-
-  void _filterSalles(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _filteredSalles = _salles.where((s) => s.capacite >= _minCapacity).toList();
-      } else {
-        _filteredSalles = _salles.where((salle) {
-          final matchesQuery = salle.nom.toLowerCase().contains(query.toLowerCase()) ||
-              salle.equipements.toLowerCase().contains(query.toLowerCase());
-          final matchesCapacity = salle.capacite >= _minCapacity;
-          return matchesQuery && matchesCapacity;
-        }).toList();
+    try {
+      final salles = await _api.getSalles();
+      if (mounted) {
+        setState(() {
+          _salles = salles;
+          _loading = false;
+        });
+        _applyFilters();
       }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Impossible de charger les salles';
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  void _applyFilters() {
+    final query = _searchController.text.trim().toLowerCase();
+    setState(() {
+      _filtered = _salles.where((s) {
+        final matchSearch = query.isEmpty ||
+            s.nom.toLowerCase().contains(query) ||
+            s.equipements.toLowerCase().contains(query);
+        final matchCapacity =
+            _capacityFilter == null || s.capacite >= _capacityFilter!;
+        return matchSearch && matchCapacity;
+      }).toList();
     });
   }
 
-  void _showFilterDialog() {
-    showDialog(
+  void _showCapacityFilter() {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.filter_list, color: AlOmraneTheme.navyBlue),
-            SizedBox(width: 12),
-            Text('Filtrer par capacité'),
-          ],
-        ),
-        content: StatefulBuilder(
-          builder: (context, setDialogState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Capacité minimale: $_minCapacity personnes',
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 16),
-              SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: AlOmraneTheme.navyBlue,
-                  thumbColor: AlOmraneTheme.redAccent,
-                  overlayColor: AlOmraneTheme.redAccent.withOpacity(0.2),
-                ),
-                child: Slider(
-                  value: _minCapacity.toDouble(),
-                  min: 0,
-                  max: 100,
-                  divisions: 20,
-                  label: _minCapacity.toString(),
-                  onChanged: (value) {
-                    setDialogState(() => _minCapacity = value.toInt());
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() => _minCapacity = 0);
-              Navigator.pop(context);
-              _filterSalles(_searchController.text);
-            },
-            child: const Text('Réinitialiser'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _filterSalles(_searchController.text);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AlOmraneTheme.navyBlue,
-            ),
-            child: const Text('Appliquer'),
-          ),
-        ],
+      backgroundColor: AppColors.surfaceContainerLowest,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                  child: Text(
+                    'Capacité minimale',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.onSurface,
+                    ),
+                  ),
+                ),
+                ..._capacityOptions.map((cap) {
+                  final label =
+                      cap == null ? 'Toutes les salles' : '≥ $cap personnes';
+                  final selected = _capacityFilter == cap;
+                  return ListTile(
+                    leading: Icon(
+                      selected
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      color: selected
+                          ? AppColors.primary
+                          : AppColors.onSurfaceVariant,
+                    ),
+                    title: Text(
+                      label,
+                      style: TextStyle(
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        color: selected
+                            ? AppColors.primary
+                            : AppColors.onSurface,
+                      ),
+                    ),
+                    onTap: () {
+                      setState(() {
+                        _capacityFilter = cap;
+                      });
+                      _applyFilters();
+                      Navigator.pop(ctx);
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
+      backgroundColor: AppColors.surface,
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: _load,
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
             SliverAppBar(
               expandedHeight: 140,
-              floating: true,
+              floating: false,
               pinned: true,
               elevation: 0,
-              backgroundColor: AlOmraneTheme.navyBlue,
+              scrolledUnderElevation: 0,
+              backgroundColor: AppColors.navyBlue,
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
                   decoration: const BoxDecoration(
-                    gradient: AlOmraneTheme.primaryGradient,
+                    gradient: AppGradients.navyGradient,
                   ),
                   child: SafeArea(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Salles disponibles',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${_salles.length} salles trouvées',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontSize: 14,
-                            ),
+                          Row(
+                            children: [
+                              const AlOmraneLogo(size: 36),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Salles de réunion',
+                                      style: TextStyle(
+                                        color: AppColors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -0.44,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_salles.length} salle${_salles.length != 1 ? 's' : ''} disponible${_salles.length != 1 ? 's' : ''}',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.7),
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
                   ),
                 ),
+                collapseMode: CollapseMode.parallax,
+                title: const Text(
+                  'Salles de réunion',
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                titlePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               ),
             ),
             SliverToBoxAdapter(
-              child: Container(
-                height: 4,
-                decoration: const BoxDecoration(
-                  gradient: AlOmraneTheme.accentGradient,
-                ),
-              ),
+              child: const RedAccentBar(),
             ),
-          ];
-        },
-        body: Column(
-          children: [
-            // Search Bar
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Rechercher une salle...',
-                        hintStyle: TextStyle(color: Colors.grey[400]),
-                        prefixIcon: const Icon(Icons.search, color: AlOmraneTheme.navyBlue),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, color: Colors.grey),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _filterSalles('');
-                                },
-                              )
-                            : null,
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: AppShadows.card,
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[200]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AlOmraneTheme.navyBlue, width: 2),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                      onChanged: _filterSalles,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: _minCapacity > 0 ? AlOmraneTheme.navyBlue : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.filter_list,
-                        color: _minCapacity > 0 ? Colors.white : Colors.grey[600],
-                      ),
-                      onPressed: _showFilterDialog,
-                      tooltip: 'Filtrer',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Active filter chip
-            if (_minCapacity > 0)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                alignment: Alignment.centerLeft,
-                child: Chip(
-                  avatar: const Icon(Icons.group, size: 18, color: AlOmraneTheme.navyBlue),
-                  label: Text('Capacité ≥ $_minCapacity'),
-                  deleteIcon: const Icon(Icons.close, size: 18),
-                  onDeleted: () {
-                    setState(() => _minCapacity = 0);
-                    _filterSalles(_searchController.text);
-                  },
-                  backgroundColor: AlOmraneTheme.navyBlue.withOpacity(0.1),
-                  side: BorderSide.none,
-                ),
-              ),
-
-            // Room List
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _filteredSalles.isEmpty
-                      ? _buildEmptyState()
-                      : RefreshIndicator(
-                          onRefresh: _loadSalles,
-                          color: AlOmraneTheme.navyBlue,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _filteredSalles.length,
-                            itemBuilder: (context, index) {
-                              final salle = _filteredSalles[index];
-                              return AnimatedBuilder(
-                                animation: _animationController,
-                                builder: (context, child) {
-                                  final delay = index * 100;
-                                  final animation = Tween<double>(begin: 0.0, end: 1.0).animate(
-                                    CurvedAnimation(
-                                      parent: _animationController,
-                                      curve: Interval(
-                                        delay / 1000,
-                                        (delay + 400) / 1000,
-                                        curve: Curves.easeOutCubic,
-                                      ),
-                                    ),
-                                  );
-
-                                  return Transform.translate(
-                                    offset: Offset(0, 50 * (1 - animation.value)),
-                                    child: Opacity(
-                                      opacity: animation.value,
-                                      child: _buildRoomCard(salle),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
+                        child: TextField(
+                          controller: _searchController,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.onSurface,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Rechercher une salle...',
+                            hintStyle: TextStyle(
+                              color: AppColors.onSurfaceVariant.withOpacity(0.6),
+                              fontSize: 14,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              color: AppColors.onSurfaceVariant,
+                              size: 20,
+                            ),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.close_rounded,
+                                        size: 18,
+                                        color: AppColors.onSurfaceVariant),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                    },
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                            filled: false,
                           ),
                         ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: _showCapacityFilter,
+                      child: Container(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: _capacityFilter != null
+                              ? AppColors.primary
+                              : AppColors.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: AppShadows.card,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.people_rounded,
+                              size: 18,
+                              color: _capacityFilter != null
+                                  ? AppColors.white
+                                  : AppColors.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _capacityFilter != null
+                                  ? '≥${_capacityFilter}p'
+                                  : 'Capacité',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: _capacityFilter != null
+                                    ? AppColors.white
+                                    : AppColors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_loading)
+              const SliverFillRemaining(
+                child: Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                ),
+              )
+            else if (_error != null)
+              SliverFillRemaining(
+                child: EmptyState(
+                  icon: Icons.wifi_off_rounded,
+                  title: 'Erreur de chargement',
+                  subtitle: _error!,
+                  actionLabel: 'Réessayer',
+                  onAction: _load,
+                ),
+              )
+            else if (_filtered.isEmpty)
+              SliverFillRemaining(
+                child: EmptyState(
+                  icon: Icons.meeting_room_rounded,
+                  title: 'Aucune salle trouvée',
+                  subtitle: _searchController.text.isNotEmpty
+                      ? 'Aucune salle ne correspond à votre recherche'
+                      : 'Il n\'y a pas de salles disponibles pour le moment',
+                  actionLabel: _searchController.text.isNotEmpty
+                      ? 'Effacer la recherche'
+                      : null,
+                  onAction: _searchController.text.isNotEmpty
+                      ? () {
+                          _searchController.clear();
+                        }
+                      : null,
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final salle = _filtered[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _SalleCard(
+                          salle: salle,
+                          onReserver: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    CreateDemandeScreen(salle: salle),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                    childCount: _filtered.length,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SalleCard extends StatelessWidget {
+  final Salle salle;
+  final VoidCallback onReserver;
+
+  const _SalleCard({required this.salle, required this.onReserver});
+
+  List<String> get _equipementsList {
+    return salle.equipements
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final equipements = _equipementsList;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: AppShadows.card,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 4,
+              decoration: BoxDecoration(
+                gradient: salle.disponible
+                    ? AppGradients.greenGradient
+                    : LinearGradient(
+                        colors: [
+                          AppColors.outlineVariant,
+                          AppColors.outlineVariant,
+                        ],
+                      ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              salle.nom,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.onSurface,
+                                letterSpacing: -0.01,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.secondaryContainer,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.people_rounded,
+                                        size: 13,
+                                        color: AppColors.onSecondaryContainer,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${salle.capacite} personnes',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.onSecondaryContainer,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      _AvailabilityChip(disponible: salle.disponible),
+                    ],
+                  ),
+                  if (equipements.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: equipements.take(5).map((eq) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: AppColors.outlineVariant,
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            eq,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: PrimaryGradientButton(
+                      label: 'Réserver cette salle',
+                      icon: Icons.add_rounded,
+                      onPressed: salle.disponible ? onReserver : null,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+class _AvailabilityChip extends StatelessWidget {
+  final bool disponible;
+  const _AvailabilityChip({required this.disponible});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: disponible
+            ? AppColors.secondaryContainer
+            : AppColors.errorContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.search_off,
-            size: 80,
-            color: Colors.grey[300],
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Aucune salle trouvée',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[600],
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: disponible
+                  ? AppColors.secondary
+                  : AppColors.error,
+              shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(width: 5),
           Text(
-            'Essayez d\'autres critères de recherche',
+            disponible ? 'Disponible' : 'Indisponible',
             style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              _searchController.clear();
-              setState(() => _minCapacity = 0);
-              _filterSalles('');
-            },
-            icon: const Icon(Icons.refresh),
-            label: const Text('Réinitialiser les filtres'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AlOmraneTheme.navyBlue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: disponible
+                  ? AppColors.onSecondaryContainer
+                  : AppColors.onErrorContainer,
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildRoomCard(Salle salle) {
-    return Hero(
-      tag: 'salle_${salle.id}',
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 16),
-        elevation: 4,
-        shadowColor: Colors.black.withOpacity(0.1),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: InkWell(
-          onTap: () => _showBookingOptions(salle),
-          borderRadius: BorderRadius.circular(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header with image placeholder
-              Container(
-                height: 120,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AlOmraneTheme.navyBlue,
-                      AlOmraneTheme.darkNavy,
-                    ],
-                  ),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16),
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    // Background pattern
-                    Positioned.fill(
-                      child: Opacity(
-                        opacity: 0.1,
-                        child: Icon(
-                          Icons.meeting_room,
-                          size: 100,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    // Content
-                    Positioned(
-                      left: 20,
-                      bottom: 20,
-                      right: 20,
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.meeting_room,
-                              color: Colors.white,
-                              size: 32,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  salle.nom,
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.people,
-                                      size: 16,
-                                      color: Colors.white70,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${salle.capacite} personnes',
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.white70,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: salle.disponible
-                                  ? AlOmraneTheme.statusAccepted.withOpacity(0.9)
-                                  : AlOmraneTheme.statusRefused.withOpacity(0.9),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  salle.disponible ? Icons.check_circle : Icons.cancel,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  salle.disponible ? 'Disponible' : 'Occupée',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Equipment section
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Équipements',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AlOmraneTheme.darkNavy,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildEquipmentChips(salle.equipements),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => CreateDemandeScreen(salle: salle),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.calendar_today, size: 18),
-                            label: const Text('Réserver'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AlOmraneTheme.navyBlue,
-                              side: const BorderSide(color: AlOmraneTheme.navyBlue),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => CreateDemandeWithAttachmentsScreen(salle: salle),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.attach_file, size: 18),
-                            label: const Text('Avec pièces'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AlOmraneTheme.redAccent,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEquipmentChips(String equipements) {
-    final items = equipements.split(',').map((e) => e.trim()).toList();
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: items.map((item) {
-        IconData icon = Icons.circle;
-        if (item.toLowerCase().contains('projecteur')) icon = Icons.videocam;
-        else if (item.toLowerCase().contains('tableau')) icon = Icons.edit;
-        else if (item.toLowerCase().contains('wifi')) icon = Icons.wifi;
-        else if (item.toLowerCase().contains('climatisation')) icon = Icons.ac_unit;
-        else if (item.toLowerCase().contains('ordinateur')) icon = Icons.computer;
-        else if (item.toLowerCase().contains('audio')) icon = Icons.speaker;
-        else if (item.toLowerCase().contains('écran') || item.toLowerCase().contains('tv')) icon = Icons.tv;
-
-        return Chip(
-          avatar: Icon(icon, size: 16, color: AlOmraneTheme.navyBlue),
-          label: Text(
-            item,
-            style: const TextStyle(fontSize: 12),
-          ),
-          backgroundColor: AlOmraneTheme.navyBlue.withOpacity(0.1),
-          side: BorderSide.none,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        );
-      }).toList(),
-    );
-  }
-
-  void _showBookingOptions(Salle salle) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      salle.nom,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: AlOmraneTheme.darkNavy,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Capacité: ${salle.capacite} personnes',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Choisir le type de réservation',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AlOmraneTheme.navyBlue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.calendar_today,
-                          color: AlOmraneTheme.navyBlue,
-                        ),
-                      ),
-                      title: const Text('Réservation simple'),
-                      subtitle: const Text('Réserver la salle sans pièces jointes'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CreateDemandeScreen(salle: salle),
-                          ),
-                        );
-                      },
-                    ),
-                    const Divider(),
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AlOmraneTheme.redAccent.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.attach_file,
-                          color: AlOmraneTheme.redAccent,
-                        ),
-                      ),
-                      title: const Text('Réservation avec pièces jointes'),
-                      subtitle: const Text('Joindre des documents à votre demande'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CreateDemandeWithAttachmentsScreen(salle: salle),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

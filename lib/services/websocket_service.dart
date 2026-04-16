@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../utils/constants.dart';
+
+enum WsStatus { disconnected, connecting, connected }
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
@@ -10,71 +12,126 @@ class WebSocketService {
   WebSocketService._internal();
 
   WebSocketChannel? _channel;
+  StreamSubscription? _subscription;
   final _controller = StreamController<Map<String, dynamic>>.broadcast();
   Timer? _reconnectTimer;
-  bool _isConnected = false;
+  Timer? _pingTimer;
+
+  WsStatus _status = WsStatus.disconnected;
   String? _userId;
+  String? _role;
+  int _reconnectAttempts = 0;
+  static const _maxReconnectAttempts = 10;
+  static const _reconnectBaseDelay = Duration(seconds: 3);
 
   Stream<Map<String, dynamic>> get stream => _controller.stream;
-  bool get isConnected => _isConnected;
+  WsStatus get status => _status;
+  bool get isConnected => _status == WsStatus.connected;
 
-  void connect(String userId) {
+  void connect(String userId, [String role = 'employe']) {
+    if (_userId == userId && _status == WsStatus.connected) return;
     _userId = userId;
-    _connectWebSocket();
+    _role = role;
+    _reconnectAttempts = 0;
+    _doConnect();
   }
 
-  void _connectWebSocket() {
+  void _doConnect() {
+    _cleanup();
+    _status = WsStatus.connecting;
+
     try {
       _channel = WebSocketChannel.connect(Uri.parse(ApiConstants.wsUrl));
-      _isConnected = true;
-      
-      // Authentifier l'utilisateur
-      _send({'type': 'auth', 'userId': _userId});
+      _status = WsStatus.connected;
+      _reconnectAttempts = 0;
 
-      _channel!.stream.listen(
-        (message) {
-          final data = jsonDecode(message as String);
-          _controller.add(data);
+      // Authenticate
+      _send({'type': 'auth', 'userId': _userId, 'role': _role ?? 'employe'});
+
+      // Start ping to keep connection alive
+      _pingTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+        _send({'type': 'ping'});
+      });
+
+      _subscription = _channel!.stream.listen(
+        (raw) {
+          try {
+            final data = jsonDecode(raw as String) as Map<String, dynamic>;
+            if (data['type'] != 'pong') {
+              _controller.add(data);
+            }
+          } catch (e) {
+            debugPrint('[WS] Parse error: $e');
+          }
         },
         onError: (error) {
-          debugPrint('WebSocket error: $error');
-          _reconnect();
+          debugPrint('[WS] Error: $error');
+          _scheduleReconnect();
         },
         onDone: () {
-          _isConnected = false;
-          _reconnect();
+          debugPrint('[WS] Connection closed');
+          _scheduleReconnect();
         },
       );
     } catch (e) {
-      debugPrint('WebSocket connection error: $e');
-      _reconnect();
+      debugPrint('[WS] Connect error: $e');
+      _scheduleReconnect();
     }
   }
 
-  void _reconnect() {
+  void _scheduleReconnect() {
+    _status = WsStatus.disconnected;
+    _pingTimer?.cancel();
+    _pingTimer = null;
+
+    if (_userId == null || _reconnectAttempts >= _maxReconnectAttempts) return;
+
+    final delay = _reconnectBaseDelay * (1 << _reconnectAttempts.clamp(0, 5));
+    _reconnectAttempts++;
+    debugPrint('[WS] Reconnecting in ${delay.inSeconds}s (attempt $_reconnectAttempts)');
+
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(const Duration(seconds: 5), () {
-      if (_userId != null) _connectWebSocket();
-    });
+    _reconnectTimer = Timer(delay, _doConnect);
+  }
+
+  void _cleanup() {
+    _pingTimer?.cancel();
+    _pingTimer = null;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _subscription?.cancel();
+    _subscription = null;
+    _channel?.sink.close();
+    _channel = null;
   }
 
   void _send(Map<String, dynamic> data) {
-    if (_isConnected && _channel != null) {
-      _channel!.sink.add(jsonEncode(data));
+    if (_status == WsStatus.connected && _channel != null) {
+      try {
+        _channel!.sink.add(jsonEncode(data));
+      } catch (e) {
+        debugPrint('[WS] Send error: $e');
+      }
     }
   }
 
-  void sendDemandeUpdate(String demandeId, String status) {
-    _send({'type': 'demande_update', 'demandeId': demandeId, 'status': status});
+  void sendNewDemande(Map<String, dynamic> demandeData) {
+    _send({'type': 'new_demande', 'data': demandeData});
   }
 
-  void sendNewDemande(Map<String, dynamic> demande) {
-    _send({'type': 'new_demande', 'data': demande});
+  void sendDemandeUpdate(String demandeId, String status,
+      [String? targetUserId]) {
+    _send({
+      'type': 'demande_update',
+      'demandeId': demandeId,
+      'status': status,
+      'userId': targetUserId ?? '',
+    });
   }
 
   void dispose() {
-    _reconnectTimer?.cancel();
-    _channel?.sink.close();
-    _controller.close();
+    _cleanup();
+    _userId = null;
+    _status = WsStatus.disconnected;
   }
 }

@@ -83,4 +83,21 @@ class AuthService {
     final token = await getToken();
     return token != null;
   }
+
+  Future<void> updateUserLocally(
+      String nom, String prenom, String? phone, String? department) async {
+    final user = await getCurrentUser();
+    if (user == null) return;
+    final updated = User(
+      id: user.id,
+      nom: nom,
+      prenom: prenom,
+      email: user.email,
+      role: user.role,
+      phone: phone,
+      department: department,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_data', jsonEncode(updated.toJson()));
+  }
 }

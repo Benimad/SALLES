@@ -1,24 +1,41 @@
 <?php
 require_once 'config.php';
 
-$database = new Database();
-$db = $database->getConnection();
+$db = getDB();
 
-$data = json_decode(file_get_contents("php://input"));
+try {
+    $input = json_decode(file_get_contents("php://input"), true);
 
-if (!empty($data->user_id) && !empty($data->fcm_token)) {
+    if (empty($input['user_id']) || empty($input['fcm_token'])) {
+        echo ApiResponse::validation(['message' => 'User ID et token FCM requis']);
+        exit();
+    }
+
+    $userId = intval($input['user_id']);
+    $fcmToken = trim($input['fcm_token']);
+
+    // Validate token format (Firebase FCM tokens have typical length)
+    if (strlen($fcmToken) < 50) {
+        echo ApiResponse::error('Token FCM invalide');
+        exit();
+    }
+
     $query = "UPDATE users SET fcm_token = :fcm_token WHERE id = :user_id";
     $stmt = $db->prepare($query);
-    
-    $stmt->bindParam(':fcm_token', $data->fcm_token);
-    $stmt->bindParam(':user_id', $data->user_id);
+    $stmt->bindParam(':fcm_token', $fcmToken);
+    $stmt->bindParam(':user_id', $userId, PDO::PARAM_INT);
 
-    if ($stmt->execute()) {
-        echo json_encode(['success' => true, 'message' => 'Token FCM mis à jour']);
-    } else {
-        echo json_encode(['success' => false, 'message' => 'Erreur lors de la mise à jour']);
+    $stmt->execute();
+
+    if ($stmt->rowCount() === 0) {
+        echo ApiResponse::error('Utilisateur non trouvé', 404);
+        exit();
     }
-} else {
-    echo json_encode(['success' => false, 'message' => 'User ID et token requis']);
+
+    echo ApiResponse::success(['user_id' => $userId], 'Token FCM mis à jour');
+
+} catch (PDOException $e) {
+    error_log('Error: ' . $e->getMessage());
+    echo ApiResponse::error('Erreur serveur', 500);
 }
 ?>

@@ -1,47 +1,54 @@
 <?php
 require_once 'config.php';
 
-$database = new Database();
-$db = $database->getConnection();
+$db = getDB();
 
-$user_id = isset($_GET['user_id']) ? $_GET['user_id'] : null;
+try {
+    $userId = $_GET['user_id'] ?? null;
+    $status = $_GET['status'] ?? null;
+    $adminView = isset($_GET['admin']) && $_GET['admin'] === '1';
+    $limit = intval($_GET['limit'] ?? 50);
+    $offset = intval($_GET['offset'] ?? 0);
 
-if ($user_id) {
-    $query = "SELECT d.*, s.nom as salle_name, CONCAT(u.prenom, ' ', u.nom) as user_name
+    $query = "SELECT d.id, d.user_id, d.salle_id,
+                     CONCAT(u.prenom, ' ', u.nom) as user_name,
+                     s.nom as salle_name,
+                     d.date_debut, d.date_fin, d.heure_debut, d.heure_fin, 
+                     d.motif, d.description, d.participants_externes,
+                     d.statut, d.raison_rejet, d.created_at
               FROM demandes d
-              JOIN salles s ON d.salle_id = s.id
               JOIN users u ON d.user_id = u.id
-              WHERE d.user_id = :user_id
-              ORDER BY d.created_at DESC";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(':user_id', $user_id);
-} else {
-    $query = "SELECT d.*, s.nom as salle_name, CONCAT(u.prenom, ' ', u.nom) as user_name
-              FROM demandes d
               JOIN salles s ON d.salle_id = s.id
-              JOIN users u ON d.user_id = u.id
-              ORDER BY d.created_at DESC";
+              WHERE 1=1";
+
+    if ($userId && !$adminView) {
+        $query .= " AND d.user_id = :user_id";
+    }
+
+    if ($status) {
+        $query .= " AND d.statut = :status";
+    }
+
+    $query .= " ORDER BY d.date_debut DESC LIMIT :limit OFFSET :offset";
+
     $stmt = $db->prepare($query);
+
+    if ($userId && !$adminView) {
+        $stmt->bindParam(':user_id', $userId, PDO::PARAM_INT);
+    }
+    if ($status) {
+        $stmt->bindParam(':status', $status, PDO::PARAM_STR);
+    }
+    $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+
+    $stmt->execute();
+    $demandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode(['success' => true, 'demandes' => $demandes, 'total' => count($demandes)]);
+
+} catch (PDOException $e) {
+    error_log('Error: ' . $e->getMessage());
+    echo ApiResponse::error('Erreur serveur', 500);
 }
-
-$stmt->execute();
-
-$demandes = [];
-while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    $demandes[] = [
-        'id' => $row['id'],
-        'user_id' => $row['user_id'],
-        'salle_id' => $row['salle_id'],
-        'date_debut' => $row['date_debut'],
-        'date_fin' => $row['date_fin'],
-        'heure_debut' => $row['heure_debut'],
-        'heure_fin' => $row['heure_fin'],
-        'motif' => $row['motif'],
-        'statut' => $row['statut'],
-        'salle_name' => $row['salle_name'],
-        'user_name' => $row['user_name']
-    ];
-}
-
-echo json_encode(['success' => true, 'demandes' => $demandes]);
 ?>

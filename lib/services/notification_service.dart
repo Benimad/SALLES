@@ -1,168 +1,79 @@
-import 'package:flutter/foundation.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  static final GlobalKey<ScaffoldMessengerState> messengerKey =
+      GlobalKey<ScaffoldMessengerState>();
 
   Future<void> initialize() async {
-    // Demander la permission pour les notifications
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
+    debugPrint('NotificationService: initialized (WebSocket-based)');
+  }
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      debugPrint('Notifications autorisées');
+  void showLocalNotification({
+    required String title,
+    required String body,
+    String status = 'info',
+  }) {
+    Color bgColor;
+    IconData icon;
+    switch (status) {
+      case 'approuvee':
+        bgColor = const Color(0xFF006E2D);
+        icon = Icons.check_circle_rounded;
+        break;
+      case 'rejetee':
+        bgColor = const Color(0xFFBA0013);
+        icon = Icons.cancel_rounded;
+        break;
+      default:
+        bgColor = const Color(0xFF1A3A5C);
+        icon = Icons.notifications_rounded;
     }
 
-    // Configuration des notifications locales
-    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-
-    const InitializationSettings initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
-
-    await _localNotifications.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: _onNotificationTapped,
-    );
-
-    // Créer le canal de notification Android
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'salles_channel',
-      'Notifications Salles',
-      description: 'Notifications pour les demandes de salles',
-      importance: Importance.high,
-    );
-
-    await _localNotifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
-
-    // Écouter les messages en premier plan
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-
-    // Écouter les messages en arrière-plan
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessage);
-
-    // Obtenir le token FCM
-    String? token = await _firebaseMessaging.getToken();
-    if (token != null) {
-      await _saveToken(token);
-      debugPrint('FCM Token: $token');
-    }
-
-    // Écouter les changements de token
-    _firebaseMessaging.onTokenRefresh.listen(_saveToken);
-  }
-
-  Future<void> _saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('fcm_token', token);
-    // TODO: Envoyer le token au serveur
-  }
-
-  Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('fcm_token');
-  }
-
-  void _handleForegroundMessage(RemoteMessage message) {
-    debugPrint('Message reçu en premier plan: ${message.notification?.title}');
-    _showLocalNotification(message);
-  }
-
-  void _handleBackgroundMessage(RemoteMessage message) {
-    debugPrint('Message ouvert depuis l\'arrière-plan: ${message.notification?.title}');
-  }
-
-  Future<void> _showLocalNotification(RemoteMessage message) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'salles_channel',
-      'Notifications Salles',
-      channelDescription: 'Notifications pour les demandes de salles',
-      importance: Importance.high,
-      priority: Priority.high,
-      showWhen: true,
-    );
-
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const NotificationDetails details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await _localNotifications.show(
-      message.hashCode,
-      message.notification?.title ?? 'Nouvelle notification',
-      message.notification?.body ?? '',
-      details,
-      payload: message.data.toString(),
+    messengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14)),
+                  if (body.isNotEmpty)
+                    Text(body,
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: bgColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 4),
+      ),
     );
   }
 
-  void _onNotificationTapped(NotificationResponse response) {
-    debugPrint('Notification tapée: ${response.payload}');
-    // TODO: Navigation vers l'écran approprié
-  }
-
-  // Notifications locales personnalisées
   Future<void> showDemandeStatusNotification({
     required String title,
     required String body,
     required String status,
   }) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'salles_channel',
-      'Notifications Salles',
-      channelDescription: 'Notifications pour les demandes de salles',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-    );
-
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails();
-
-    const NotificationDetails details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await _localNotifications.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title,
-      body,
-      details,
-    );
+    showLocalNotification(title: title, body: body, status: status);
   }
 
-  Future<void> cancelAllNotifications() async {
-    await _localNotifications.cancelAll();
-  }
-}
-
-// Handler pour les messages en arrière-plan (doit être top-level)
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('Message en arrière-plan: ${message.notification?.title}');
+  Future<void> cancelAllNotifications() async {}
 }

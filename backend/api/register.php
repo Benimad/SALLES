@@ -1,37 +1,65 @@
 <?php
 require_once 'config.php';
 
-$database = new Database();
-$db = $database->getConnection();
+$db = getDB();
 
-$data = json_decode(file_get_contents("php://input"));
+try {
+    $input = json_decode(file_get_contents("php://input"), true);
 
-if (!empty($data->nom) && !empty($data->prenom) && !empty($data->email) && !empty($data->password)) {
-    $query = "SELECT id FROM users WHERE email = :email";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(':email', $data->email);
-    $stmt->execute();
+    // Validation
+    $errors = [];
+    if (empty($input['nom'])) $errors['nom'] = 'Nom requis';
+    if (empty($input['prenom'])) $errors['prenom'] = 'Prénom requis';
+    if (empty($input['email'])) $errors['email'] = 'Email requis';
+    else if (!filter_var($input['email'], FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Email invalide';
+    if (empty($input['password'])) $errors['password'] = 'Mot de passe requis';
+    else if (strlen($input['password']) < 6) $errors['password'] = 'Mot de passe doit avoir au moins 6 caractères';
 
-    if ($stmt->rowCount() > 0) {
-        echo json_encode(['success' => false, 'message' => 'Cet email est déjà utilisé']);
-    } else {
-        $query = "INSERT INTO users (nom, prenom, email, password) VALUES (:nom, :prenom, :email, :password)";
-        $stmt = $db->prepare($query);
-        
-        $hashed_password = password_hash($data->password, PASSWORD_DEFAULT);
-        
-        $stmt->bindParam(':nom', $data->nom);
-        $stmt->bindParam(':prenom', $data->prenom);
-        $stmt->bindParam(':email', $data->email);
-        $stmt->bindParam(':password', $hashed_password);
-
-        if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Inscription réussie']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Erreur lors de l\'inscription']);
-        }
+    if (!empty($errors)) {
+        echo ApiResponse::validation($errors);
+        exit();
     }
-} else {
-    echo json_encode(['success' => false, 'message' => 'Tous les champs sont requis']);
+
+    $email = filter_var($input['email'], FILTER_SANITIZE_EMAIL);
+
+    // Check if email exists
+    $checkQuery = "SELECT id FROM users WHERE email = :email LIMIT 1";
+    $checkStmt = $db->prepare($checkQuery);
+    $checkStmt->bindParam(':email', $email);
+    $checkStmt->execute();
+
+    if ($checkStmt->rowCount() > 0) {
+        echo ApiResponse::error('Cet email est déjà utilisé');
+        exit();
+    }
+
+    // Insert new user
+    $insertQuery = "INSERT INTO users (nom, prenom, email, password, role, status) 
+                    VALUES (:nom, :prenom, :email, :password, 'employe', 'active')";
+    $insertStmt = $db->prepare($insertQuery);
+
+    $hashedPassword = password_hash($input['password'], PASSWORD_DEFAULT);
+    
+    $insertStmt->bindParam(':nom', $input['nom']);
+    $insertStmt->bindParam(':prenom', $input['prenom']);
+    $insertStmt->bindParam(':email', $email);
+    $insertStmt->bindParam(':password', $hashedPassword);
+
+    $insertStmt->execute();
+    $userId = $db->lastInsertId();
+
+    $user = [
+        'id' => (int)$userId,
+        'nom' => $input['nom'],
+        'prenom' => $input['prenom'],
+        'email' => $email,
+        'role' => 'employe'
+    ];
+
+    echo ApiResponse::success($user, 'Inscription réussie');
+
+} catch (PDOException $e) {
+    error_log('Registration Error: ' . $e->getMessage());
+    echo ApiResponse::error('Erreur lors de l\'inscription', 500);
 }
 ?>

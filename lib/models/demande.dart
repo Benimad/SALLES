@@ -7,9 +7,13 @@ class Demande {
   final String heureDebut;
   final String heureFin;
   final String motif;
+  final String? description;
+  final int participantsExternes;
   final String statut;
+  final String? raisonRejet;
   final String? userName;
   final String? salleName;
+  final String? createdAt;
 
   Demande({
     required this.id,
@@ -20,9 +24,13 @@ class Demande {
     required this.heureDebut,
     required this.heureFin,
     required this.motif,
+    this.description,
+    this.participantsExternes = 0,
     required this.statut,
+    this.raisonRejet,
     this.userName,
     this.salleName,
+    this.createdAt,
   });
 
   factory Demande.fromJson(Map<String, dynamic> json) {
@@ -35,9 +43,13 @@ class Demande {
       heureDebut: json['heure_debut'] ?? '',
       heureFin: json['heure_fin'] ?? '',
       motif: json['motif'] ?? '',
+      description: json['description'],
+      participantsExternes: int.tryParse(json['participants_externes']?.toString() ?? '0') ?? 0,
       statut: json['statut'] ?? 'en_attente',
+      raisonRejet: json['raison_rejet'],
       userName: json['user_name'],
       salleName: json['salle_name'],
+      createdAt: json['created_at'],
     );
   }
 
@@ -51,6 +63,8 @@ class Demande {
       'heure_debut': heureDebut,
       'heure_fin': heureFin,
       'motif': motif,
+      'description': description,
+      'participants_externes': participantsExternes,
       'statut': statut,
     };
   }

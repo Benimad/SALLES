@@ -140,6 +140,82 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> updateDemandeStatutWithReason(
+      int demandeId, String statut, String raison) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.updateDemande),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'demande_id': demandeId,
+          'statut': statut,
+          'raison_rejet': raison,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      return data;
+    } catch (e) {
+      return {'success': false, 'message': 'Erreur: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getStatistics() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/get_statistics.php'),
+        headers: await _getHeaders(),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data'] ?? {};
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProfile(
+      int userId, String nom, String prenom, String? phone, String? department) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/update_profile.php'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'user_id': userId,
+          'nom': nom,
+          'prenom': prenom,
+          'phone': phone,
+          'department': department,
+        }),
+      );
+      final data = jsonDecode(response.body);
+      return data;
+    } catch (e) {
+      return {'success': false, 'message': 'Erreur: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> changePassword(
+      int userId, String currentPassword, String newPassword) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/change_password.php'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'user_id': userId,
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        }),
+      );
+      final data = jsonDecode(response.body);
+      return data;
+    } catch (e) {
+      return {'success': false, 'message': 'Erreur: $e'};
+    }
+  }
+
   // Phase 3 - Pièces jointes
   Future<List<Attachment>> getAttachments(int demandeId) async {
     try {
@@ -175,6 +251,25 @@ class ApiService {
       return data;
     } catch (e) {
       return {'success': false, 'message': 'Erreur: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> checkAvailability(int salleId, String dateDebut, String heureDebut, String heureFin) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.checkAvailability),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'salle_id': salleId,
+          'date_debut': dateDebut,
+          'heure_debut': heureDebut,
+          'heure_fin': heureFin,
+        }),
+      );
+      final data = jsonDecode(response.body);
+      return data['data'] ?? {'available': false};
+    } catch (e) {
+      return {'available': false};
     }
   }
 }

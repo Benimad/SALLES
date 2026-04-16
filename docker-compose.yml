@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: salles_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: gestion_salles
+      MYSQL_USER: salles_user
+      MYSQL_PASSWORD: salles_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/database.sql:/docker-entrypoint-initdb.d/database.sql
+    networks:
+      - salles_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  php_backend:
+    image: php:7.4-apache
+    container_name: salles_php
+    depends_on:
+      mysql:
+        condition: service_healthy
+    working_dir: /var/www/html
+    volumes:
+      - ./backend/api:/var/www/html/api
+      - ./backend/websocket_server.php:/var/www/html/websocket_server.php
+      - php_config:/usr/local/etc/php
+    ports:
+      - "8000:80"
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=salles_user
+      - DB_PASSWORD=salles_password
+      - DB_NAME=gestion_salles
+    networks:
+      - salles_network
+    command: >
+      bash -c "
+        docker-php-ext-install mysqli pdo pdo_mysql &&
+        a2enmod rewrite &&
+        apache2-foreground
+      "
+
+  websocket_server:
+    image: php:7.4-cli
+    container_name: salles_websocket
+    depends_on:
+      - mysql
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+      - composer_cache:/root/.composer/cache
+    ports:
+      - "8080:8080"
+    networks:
+      - salles_network
+    command: >
+      bash -c "
+        cd /var/www/html &&
+        composer install &&
+        php websocket_server.php
+      "
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=salles_user
+      - DB_PASSWORD=salles_password
+      - DB_NAME=gestion_salles
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: salles_phpmyadmin
+    depends_on:
+      - mysql
+    ports:
+      - "8881:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: root_password
+    networks:
+      - salles_network
+
+volumes:
+  mysql_data:
+  composer_cache:
+
+networks:
+  salles_network:
+    driver: bridge
+
+# Usage:
+# docker-compose up -d              # Start all services
+# docker-compose down               # Stop all services
+# docker-compose logs -f            # View logs
+# docker-compose ps                 # View running containers
+# 
+# Access Points:
+# - API Backend:   http://localhost:8000/api/
+# - WebSocket:     ws://localhost:8080
+# - PhpMyAdmin:    http://localhost:8881
+#                  (user: root, password: root_password)
