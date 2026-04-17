@@ -3,8 +3,8 @@ class ApiConstants {
   // For Android Emulator - use 10.0.2.2 to access host's localhost
   // For Physical Device - use your computer's actual IP address (e.g., 192.168.1.x)
   // For iOS Simulator - use localhost
-  static const String baseUrl = 'http://10.0.2.2/salles/api';
-  static const String wsUrl = 'ws://10.0.2.2:8080';
+  static const String baseUrl = 'http://192.168.3.105:8000/api';
+  static const String wsUrl = 'ws://192.168.3.105:8080';
 
   // ===== Authentication Endpoints =====
   static const String login = '$baseUrl/login.php';
