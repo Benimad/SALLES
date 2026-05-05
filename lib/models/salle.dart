@@ -1,5 +1,5 @@
 class Salle {
-  final int id;
+  final String id;
   final String nom;
   final int capacite;
   final int? etage;
@@ -8,6 +8,7 @@ class Salle {
   final bool disponible;
   final String? description;
   final String? contactResponsable;
+  final String? imageUrl;
 
   Salle({
     required this.id,
@@ -19,19 +20,21 @@ class Salle {
     this.disponible = true,
     this.description,
     this.contactResponsable,
+    this.imageUrl,
   });
 
   factory Salle.fromJson(Map<String, dynamic> json) {
     return Salle(
-      id: int.parse(json['id'].toString()),
+      id: json['id']?.toString() ?? '',
       nom: json['nom'] ?? '',
-      capacite: int.parse(json['capacite'].toString()),
+      capacite: int.tryParse(json['capacite']?.toString() ?? '0') ?? 0,
       etage: json['etage'] != null ? int.tryParse(json['etage'].toString()) : null,
       localisation: json['localisation'],
       equipements: json['equipements'] ?? '',
-      disponible: json['disponible'] == 1 || json['disponible'] == true || json['disponible'] == '1',
+      disponible: json['disponible'] == true || json['disponible'] == 1 || json['disponible'] == '1',
       description: json['description'],
       contactResponsable: json['contact_responsable'],
+      imageUrl: json['image_url'],
     );
   }
 
@@ -43,9 +46,10 @@ class Salle {
       'etage': etage,
       'localisation': localisation,
       'equipements': equipements,
-      'disponible': disponible ? 1 : 0,
+      'disponible': disponible,
       'description': description,
       'contact_responsable': contactResponsable,
+      'image_url': imageUrl,
     };
   }
 }

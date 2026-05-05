@@ -43,3 +43,23 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Web related
+node_modules/
+.npm/
+dist/
+build_web/
+
+# Sensitive files
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!jsconfig.json
+!google-services.json
+!firebase.json
+.env
+.env.*
+*-firebase-adminsdk-*.json
+
+

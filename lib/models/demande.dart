@@ -1,7 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+
 class Demande {
-  final int id;
-  final int userId;
-  final int salleId;
+  final String id;
+  final String userId;
+  final String salleId;
   final String dateDebut;
   final String dateFin;
   final String heureDebut;
@@ -14,6 +17,7 @@ class Demande {
   final String? userName;
   final String? salleName;
   final String? createdAt;
+  final DateTime? createdAtDateTime;
 
   Demande({
     required this.id,
@@ -31,13 +35,24 @@ class Demande {
     this.userName,
     this.salleName,
     this.createdAt,
+    this.createdAtDateTime,
   });
 
   factory Demande.fromJson(Map<String, dynamic> json) {
+    String formattedDate = '';
+    if (json['created_at'] != null) {
+      if (json['created_at'] is Timestamp) {
+        final date = (json['created_at'] as Timestamp).toDate();
+        formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(date);
+      } else {
+        formattedDate = json['created_at'].toString();
+      }
+    }
+
     return Demande(
-      id: int.parse(json['id'].toString()),
-      userId: int.parse(json['user_id'].toString()),
-      salleId: int.parse(json['salle_id'].toString()),
+      id: json['id']?.toString() ?? '',
+      userId: json['user_id']?.toString() ?? '',
+      salleId: json['salle_id']?.toString() ?? '',
       dateDebut: json['date_debut'] ?? '',
       dateFin: json['date_fin'] ?? '',
       heureDebut: json['heure_debut'] ?? '',
@@ -49,13 +64,13 @@ class Demande {
       raisonRejet: json['raison_rejet'],
       userName: json['user_name'],
       salleName: json['salle_name'],
-      createdAt: json['created_at'],
+      createdAt: formattedDate,
+      createdAtDateTime: json['created_at'] is Timestamp ? (json['created_at'] as Timestamp).toDate() : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
       'user_id': userId,
       'salle_id': salleId,
       'date_debut': dateDebut,
@@ -66,6 +81,8 @@ class Demande {
       'description': description,
       'participants_externes': participantsExternes,
       'statut': statut,
+      'user_name': userName,
+      'salle_name': salleName,
     };
   }
 }

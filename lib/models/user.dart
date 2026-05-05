@@ -1,5 +1,5 @@
 class User {
-  final int id;
+  final String id;
   final String nom;
   final String prenom;
   final String email;
@@ -19,7 +19,7 @@ class User {
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: int.parse(json['id'].toString()),
+      id: json['id']?.toString() ?? '',
       nom: json['nom'] ?? '',
       prenom: json['prenom'] ?? '',
       email: json['email'] ?? '',

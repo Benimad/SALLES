@@ -1,0 +1,16 @@
+{
+  "name": "salles-admin-backend",
+  "version": "1.0.0",
+  "description": "Backend for Al Omrane Room Management Admin Dashboard",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "firebase-admin": "^11.5.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3"
+  }
+}

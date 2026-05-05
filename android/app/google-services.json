@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "905030593731",
+    "project_id": "salles-7274b",
+    "storage_bucket": "salles-7274b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:905030593731:android:f75ca79b4e43900ae58676",
+        "android_client_info": {
+          "package_name": "com.example.salles"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "905030593731-ngjh5l479eo9koafdaujjhje9t21p6q9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCG_u5mE8gt1TJJpSMHFFHGxGPR0_JlMVY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "905030593731-ngjh5l479eo9koafdaujjhje9t21p6q9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
